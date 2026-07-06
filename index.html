@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ブドウ販売 価格計算ツール</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F5F1E6;
+    --paper-2:#EFE8D8;
+    --ink:#2E1A2E;
+    --ink-soft:#5B4A5C;
+    --grape:#5B2A6F;
+    --grape-deep:#3E1C4D;
+    --grape-pale:#E9DEEF;
+    --vine:#4F6B3A;
+    --vine-pale:#E4EADB;
+    --amber:#B8651E;
+    --amber-deep:#8F4E17;
+    --line:#DCD0B8;
+    --white:#FFFDF9;
+    --danger:#A23B3B;
+    --shadow: 0 6px 20px rgba(46,26,46,0.10);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Zen Kaku Gothic New', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{ background:var(--grape-pale); }
+  button{ font-family:inherit; cursor:pointer; }
+  input, select{ font-family:inherit; }
+  :focus-visible{ outline:3px solid var(--amber); outline-offset:2px; }
+
+  .wrap{ max-width:1180px; margin:0 auto; padding:28px 20px 80px; }
+
+  header.top{
+    display:flex; align-items:center; gap:16px; margin-bottom:26px;
+  }
+  .grape-mark{ flex:0 0 auto; }
+  header.top h1{
+    font-family:'Shippori Mincho', serif;
+    font-weight:700;
+    font-size:28px;
+    margin:0;
+    color:var(--grape-deep);
+    letter-spacing:.02em;
+  }
+  header.top p{
+    margin:4px 0 0;
+    font-size:13px;
+    color:var(--ink-soft);
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns: 1fr 380px;
+    gap:24px;
+    align-items:start;
+  }
+  @media (max-width:880px){
+    .grid{ grid-template-columns: 1fr; }
+    .slip{ position:static !important; }
+  }
+
+  /* ---------- 左：品種ピッカー ---------- */
+  .panel{
+    background:var(--white);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:20px;
+    box-shadow:var(--shadow);
+  }
+  .panel h2{
+    font-family:'Shippori Mincho', serif;
+    font-size:17px;
+    margin:0 0 14px;
+    color:var(--grape-deep);
+    display:flex; align-items:center; gap:8px;
+  }
+  .search-row{
+    display:flex; gap:8px; margin-bottom:14px;
+  }
+  .search-row input[type=text]{
+    flex:1; padding:11px 14px; border:1.5px solid var(--line); border-radius:9px;
+    font-size:14px; background:var(--paper); color:var(--ink);
+  }
+  .variety-grid{
+    display:grid; grid-template-columns: repeat(auto-fill, minmax(150px,1fr));
+    gap:10px; max-height:420px; overflow-y:auto; padding-right:4px;
+  }
+  .variety-card{
+    border:1.5px solid var(--line); background:var(--paper);
+    border-radius:10px; padding:10px 12px; text-align:left;
+    transition: border-color .15s, transform .1s, background .15s;
+  }
+  .variety-card:hover{ border-color:var(--grape); background:var(--grape-pale); }
+  .variety-card:active{ transform: scale(0.98); }
+  .variety-card .vname{ font-weight:700; font-size:13.5px; display:block; margin-bottom:4px; line-height:1.3; }
+  .variety-card .vprice{ font-size:12.5px; color:var(--amber-deep); font-weight:700; font-variant-numeric:tabular-nums; }
+  .variety-card.empty{ opacity:.55; font-size:12.5px; text-align:center; padding:20px 8px; }
+
+  /* ---------- 折りたたみセクション共通 ---------- */
+  details.section{
+    background:var(--white); border:1px solid var(--line); border-radius:14px;
+    padding:6px 20px; margin-top:20px; box-shadow:var(--shadow);
+  }
+  details.section > summary{
+    cursor:pointer; list-style:none; padding:14px 0;
+    font-family:'Shippori Mincho', serif; font-size:16px; color:var(--grape-deep);
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  details.section > summary::-webkit-details-marker{ display:none; }
+  details.section > summary .chev{ transition: transform .2s; color:var(--ink-soft); font-size:13px; }
+  details.section[open] > summary .chev{ transform: rotate(90deg); }
+  .section-body{ padding-bottom:18px; }
+
+  .master-table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  .master-table th{
+    text-align:left; font-weight:700; color:var(--ink-soft); font-size:12px;
+    border-bottom:1.5px solid var(--line); padding:6px 8px; letter-spacing:.03em;
+  }
+  .master-table td{ padding:5px 8px; border-bottom:1px solid var(--paper-2); }
+  .master-table input[type=text], .master-table input[type=number]{
+    width:100%; padding:6px 8px; border:1px solid var(--line); border-radius:6px; background:var(--paper);
+  }
+  .master-table input[type=number]{ text-align:right; font-variant-numeric:tabular-nums; }
+  .row-del{
+    background:none; border:none; color:var(--danger); font-size:16px; padding:2px 6px; border-radius:6px;
+  }
+  .row-del:hover{ background:#F5E5E5; }
+  .master-scroll{ max-height:340px; overflow:auto; border:1px solid var(--paper-2); border-radius:8px; padding:2px 6px; }
+  .add-row-btn, .ghost-btn{
+    margin-top:10px; background:var(--paper); border:1.5px dashed var(--line); color:var(--ink-soft);
+    padding:9px 14px; border-radius:8px; font-size:13px; font-weight:700;
+  }
+  .add-row-btn:hover, .ghost-btn:hover{ border-color:var(--grape); color:var(--grape); }
+
+  .rate-table{ border-collapse:collapse; font-size:12.5px; white-space:nowrap; }
+  .rate-table th, .rate-table td{ border:1px solid var(--paper-2); padding:5px 6px; text-align:center; }
+  .rate-table thead th{ background:var(--grape-pale); color:var(--grape-deep); font-weight:700; position:sticky; top:0; z-index:2; }
+  .rate-table tbody th{ background:var(--paper-2); color:var(--ink-soft); font-weight:700; position:sticky; left:0; z-index:1; }
+  .rate-table input[type=text]{
+    width:74px; padding:6px 5px; border:1px solid var(--line); border-radius:5px; text-align:right;
+    background:var(--white); font-variant-numeric:tabular-nums; cursor:text;
+  }
+  .rate-table td.same-col input{ background:var(--vine-pale); }
+  /* 数値の増減矢印(スピナー)を消して、クリックしてそのまま入力できるようにする */
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button{ -webkit-appearance:none; margin:0; }
+  input[type=number]{ -moz-appearance:textfield; appearance:textfield; }
+
+  .home-pref-row{ display:flex; align-items:center; gap:10px; margin:14px 0 4px; }
+  .home-pref-row label{ font-size:13px; font-weight:700; color:var(--ink-soft); }
+  .home-pref-row select{ padding:8px 10px; border:1.5px solid var(--line); border-radius:8px; background:var(--paper); font-size:13.5px; }
+
+  /* ---------- 右：伝票 ---------- */
+  .slip{
+    position:sticky; top:20px;
+    background:var(--white);
+    border:1px solid var(--line);
+    border-radius:2px;
+    box-shadow:var(--shadow);
+    position:relative;
+    padding-top:22px;
+  }
+  .slip::before, .slip::after{
+    content:""; position:absolute; left:0; right:0; height:11px;
+    background-image: linear-gradient(-45deg, var(--paper) 6px, transparent 0), linear-gradient(45deg, var(--paper) 6px, transparent 0);
+    background-size: 14px 14px; background-repeat:repeat-x;
+  }
+  .slip::before{ top:-1px; background-position: bottom; }
+  .slip::after{ bottom:-1px; transform: rotate(180deg); }
+  .slip-inner{ padding:14px 22px 22px; }
+  .slip-title{
+    font-family:'Shippori Mincho', serif; font-size:15px; text-align:center;
+    color:var(--grape-deep); letter-spacing:.15em; margin-bottom:14px;
+  }
+  .pref-row{ margin-bottom:14px; }
+  .pref-row label{ display:block; font-size:11.5px; color:var(--ink-soft); font-weight:700; margin-bottom:5px; letter-spacing:.04em; }
+  .pref-row select{
+    width:100%; padding:10px 10px; border:1.5px solid var(--line); border-radius:8px; background:var(--paper); font-size:14px;
+  }
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .zone-hint{ font-size:11px; color:var(--vine); margin-top:4px; font-weight:700; }
+  .slip-items{ border-top:1.5px dashed var(--line); border-bottom:1.5px dashed var(--line); padding:10px 0; min-height:60px; }
+  .slip-empty{ color:var(--ink-soft); font-size:13px; text-align:center; padding:18px 0; }
+  .slip-item{ display:flex; align-items:center; gap:8px; padding:7px 0; }
+  .slip-item .si-name{ flex:1; font-size:13px; font-weight:700; line-height:1.3; }
+  .slip-item .si-sub{ font-size:11px; color:var(--ink-soft); font-variant-numeric:tabular-nums; }
+  .qty-stepper{ display:flex; align-items:center; gap:4px; }
+  .qty-stepper button{
+    width:22px; height:22px; border-radius:6px; border:1px solid var(--line); background:var(--paper); font-weight:900; line-height:1;
+  }
+  .qty-stepper button:hover{ border-color:var(--grape); color:var(--grape); }
+  .qty-stepper span{ min-width:20px; text-align:center; font-size:13px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .si-amt{ width:74px; text-align:right; font-size:13px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .si-del{ background:none; border:none; color:var(--danger); font-size:15px; padding:0 2px; }
+
+  .slip-calc{ padding-top:12px; font-size:13.5px; }
+  .calc-line{ display:flex; justify-content:space-between; padding:4px 0; color:var(--ink-soft); font-variant-numeric:tabular-nums; }
+  .calc-total{
+    display:flex; justify-content:space-between; align-items:baseline;
+    border-top:2px solid var(--grape-deep); margin-top:8px; padding-top:10px;
+  }
+  .calc-total .label{ font-family:'Shippori Mincho', serif; font-size:15px; color:var(--grape-deep); }
+  .calc-total .amount{ font-size:26px; font-weight:900; color:var(--amber-deep); font-variant-numeric:tabular-nums; }
+
+  .confirm-btn{
+    width:100%; margin-top:16px; padding:14px; border:none; border-radius:10px;
+    background:var(--grape); color:var(--white); font-size:15px; font-weight:700; letter-spacing:.05em;
+    box-shadow:0 4px 12px rgba(91,42,111,.3);
+    transition: background .15s, transform .1s;
+  }
+  .confirm-btn:hover{ background:var(--grape-deep); }
+  .confirm-btn:active{ transform: scale(0.98); }
+  .confirm-btn:disabled{ background:#C9C0CC; box-shadow:none; cursor:not-allowed; }
+  .reset-link{
+    display:block; text-align:center; margin-top:10px; font-size:12px; color:var(--ink-soft);
+    background:none; border:none; text-decoration:underline; width:100%;
+  }
+
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--grape-deep); color:var(--white); padding:12px 22px; border-radius:10px;
+    font-size:13.5px; font-weight:700; box-shadow:0 8px 24px rgba(0,0,0,.2);
+    opacity:0; pointer-events:none; transition: opacity .25s, transform .25s; z-index:50;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  .history-list{ font-size:13px; }
+  .history-item{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:9px 4px; border-bottom:1px solid var(--paper-2); gap:10px;
+  }
+  .history-item .hi-meta{ color:var(--ink-soft); font-size:11.5px; }
+  .hi-no{
+    display:inline-block; font-weight:900; color:var(--grape-deep); font-variant-numeric:tabular-nums;
+    background:var(--grape-pale); padding:1px 6px; border-radius:5px; font-size:11.5px; margin-right:6px;
+  }
+  .history-item .hi-amt{ font-weight:700; color:var(--amber-deep); font-variant-numeric:tabular-nums; }
+  .empty-note{ color:var(--ink-soft); font-size:13px; padding:12px 4px; }
+
+  .note{ font-size:12px; color:var(--ink-soft); line-height:1.7; margin-top:6px; }
+  .badge{
+    display:inline-block; background:var(--vine-pale); color:var(--vine); font-size:11px; font-weight:700;
+    padding:2px 8px; border-radius:20px; margin-left:6px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <svg class="grape-mark" width="46" height="46" viewBox="0 0 46 46" fill="none">
+      <circle cx="23" cy="10" r="5" fill="#5B2A6F"/>
+      <circle cx="15" cy="18" r="5" fill="#5B2A6F"/>
+      <circle cx="31" cy="18" r="5" fill="#5B2A6F"/>
+      <circle cx="11" cy="27" r="5" fill="#7A4693"/>
+      <circle cx="23" cy="27" r="5" fill="#7A4693"/>
+      <circle cx="35" cy="27" r="5" fill="#7A4693"/>
+      <circle cx="17" cy="36" r="5" fill="#8B5FA3"/>
+      <circle cx="29" cy="36" r="5" fill="#8B5FA3"/>
+      <path d="M23 10 Q19 2 25 1" stroke="#4F6B3A" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    </svg>
+    <div>
+      <h1>ブドウ販売 価格計算ツール</h1>
+      <p>品種・配送先(都道府県)・箱サイズを選ぶだけで、合計金額をその場で計算します。</p>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- 左：品種選択 -->
+    <div class="panel">
+      <h2>① 品種を選ぶ</h2>
+      <div class="search-row">
+        <input type="text" id="searchInput" placeholder="品種名で絞り込み（例：マスカット）">
+      </div>
+      <div class="variety-grid" id="varietyGrid"></div>
+    </div>
+
+    <!-- 右：伝票 -->
+    <div class="slip">
+      <div class="slip-inner">
+        <div class="slip-title">御 会 計 票</div>
+
+        <div class="pref-row two-col">
+          <div>
+            <label for="prefSelect">② 配送先（都道府県）</label>
+            <select id="prefSelect"></select>
+            <div class="zone-hint" id="zoneHint"></div>
+          </div>
+          <div>
+            <label for="sizeSelect">③ 箱のサイズ</label>
+            <select id="sizeSelect"></select>
+          </div>
+        </div>
+
+        <div class="slip-items" id="slipItems">
+          <div class="slip-empty">左のリストから品種を選んでください</div>
+        </div>
+
+        <div class="slip-calc">
+          <div class="calc-line"><span>商品小計</span><span id="calcSubtotal">¥0</span></div>
+          <div class="calc-line"><span>配送料（<span id="calcPrefName">未選択</span>）</span><span id="calcShipping">¥0</span></div>
+          <div class="calc-total"><span class="label">合計</span><span class="amount" id="calcTotal">¥0</span></div>
+        </div>
+
+        <button class="confirm-btn" id="confirmBtn">この内容で会計を確定する</button>
+        <button class="reset-link" id="resetBtn">注文内容をクリア</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 品種・配送料マスタ設定 -->
+  <details class="section" id="masterSection">
+    <summary>④ 品種・配送料金の設定<span class="chev">▶</span></summary>
+    <div class="section-body">
+      <p class="note">単価・配送料はこの農園に合わせて自由に編集できます。変更内容はこのブラウザに保存され、次回開いたときも引き継がれます。<span class="badge">品種価格：要編集</span></p>
+
+      <h3 style="font-size:13.5px; margin:16px 0 8px; color:var(--grape-deep);">品種マスタ（単価）</h3>
+      <div class="master-scroll">
+        <table class="master-table">
+          <thead><tr><th style="width:60%">品種名</th><th style="width:30%">単価（円）</th><th></th></tr></thead>
+          <tbody id="varietyTableBody"></tbody>
+        </table>
+      </div>
+      <button class="add-row-btn" id="addVarietyBtn">＋ 品種を追加</button>
+
+      <h3 style="font-size:13.5px; margin:22px 0 8px; color:var(--grape-deep);">配送料マスタ（発送元：関西地方の運賃表を反映済み）</h3>
+      <div class="home-pref-row">
+        <label for="homePrefSelect">農園のある都道府県（発地）</label>
+        <select id="homePrefSelect"></select>
+        <span class="note" style="margin:0;">この県内への配送は「同一県内」料金が使われます</span>
+      </div>
+      <div class="master-scroll" style="max-height:380px;">
+        <table class="rate-table" id="rateTable"></table>
+      </div>
+      <p class="note">列（ゾーン）ごとに料金を編集できます。同じゾーンの都道府県はまとめて同じ料金になります。</p>
+    </div>
+  </details>
+
+  <!-- 注文履歴 -->
+  <details class="section" id="historySection">
+    <summary>会計履歴（直近20件）<span class="chev">▶</span></summary>
+    <div class="section-body">
+      <div class="history-list" id="historyList"></div>
+      <button class="ghost-btn" id="clearHistoryBtn">履歴を消去</button>
+    </div>
+  </details>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- ゾーン定義（関西発 全国配送運賃表を反映） ----------
+  const ZONES = [
+    { id:"hokkaido", name:"北海道", prefs:["北海道"] },
+    { id:"kita_tohoku", name:"北東北", prefs:["青森県","秋田県","岩手県"] },
+    { id:"minami_tohoku", name:"南東北", prefs:["宮城県","山形県","福島県"] },
+    { id:"kanto", name:"関東", prefs:["茨城県","栃木県","群馬県","埼玉県","千葉県","神奈川県","東京都","山梨県"] },
+    { id:"shinetsu", name:"信越", prefs:["新潟県","長野県"] },
+    { id:"hokuriku", name:"北陸", prefs:["富山県","石川県","福井県"] },
+    { id:"chubu", name:"中部", prefs:["静岡県","愛知県","三重県","岐阜県"] },
+    { id:"kansai", name:"関西", prefs:["大阪府","京都府","滋賀県","奈良県","和歌山県","兵庫県"] },
+    { id:"chugoku", name:"中国", prefs:["岡山県","広島県","山口県","鳥取県","島根県"] },
+    { id:"shikoku", name:"四国", prefs:["香川県","徳島県","愛媛県","高知県"] },
+    { id:"kyushu", name:"九州", prefs:["福岡県","佐賀県","長崎県","熊本県","大分県","宮崎県","鹿児島県"] },
+    { id:"okinawa", name:"沖縄", prefs:["沖縄県"] }
+  ];
+
+  const PREF_TO_ZONE = {};
+  ZONES.forEach(z => z.prefs.forEach(p => PREF_TO_ZONE[p] = z.id));
+  const PREF_NAMES = ZONES.reduce((a,z)=>a.concat(z.prefs), []);
+
+  const SIZES = ["コンパクト","60","80","100","120","140","160","180","200"];
+
+  // 行=サイズ, 列=ゾーンid（順序はZONESに準拠）＋ same（同一県内）
+  const DEFAULT_RATES = {
+    same:      [null,790,1090,1410,1730,2090,2410,3030,3690],
+    hokkaido:  [1040,1920,2200,2510,3120,3810,4180,6820,8410],
+    kita_tohoku:[820,1320,1610,1920,2460,3100,3480,5060,6380],
+    minami_tohoku:[760,1190,1480,1790,2310,2930,3320,4900,6220],
+    kanto:     [710,1060,1350,1650,2170,2780,3160,4480,5410],
+    shinetsu:  [710,1060,1350,1650,2170,2780,3160,4480,5410],
+    hokuriku:  [650,940,1230,1530,2040,2630,3020,3680,4470],
+    chubu:     [650,940,1230,1530,2040,2630,3020,3680,4470],
+    kansai:    [650,940,1230,1530,2040,2630,3020,3680,4470],
+    chugoku:   [650,940,1230,1530,2040,2630,3020,3680,4470],
+    shikoku:   [650,940,1230,1530,2040,2630,3020,3680,4470],
+    kyushu:    [710,1060,1350,1650,2170,2780,3160,4480,5410],
+    okinawa:   [870,1460,2070,2710,3360,4030,4680,7210,8860]
+  };
+
+  const DEFAULT_VARIETIES = [
+    ["シャインマスカット",2500],["ピオーネ",2200],["巨峰",1800],["ナガノパープル",2600],
+    ["クイーンニーナ",2400],["甲斐路",2000],["瀬戸ジャイアンツ",2100],["藤稔",2300],
+    ["ロザリオビアンコ",1900],["甲斐乙女",2000],["安芸クイーン",1800],["ゴルビー",2400],
+    ["サニールージュ",1600],["スチューベン",1500],["ハニービーナス",2200],["クインシー",2500],
+    ["デラウェア",1200],["マニキュアフィンガー",2800],["翠峰",2000],["紫玉",1700],
+    ["伊豆錦",1900],["高妻",2100],["黒峰",1800],["リザマート",2000],
+    ["東京ゴールド",1700],["オリエンタルスター",2300],["ブラックビート",2600],["雄宝",2400],
+    ["天山",1900],["紅環",1700]
+  ].map((v,i)=>({ id:"v"+i, name:v[0], price:v[1] }));
+
+  let varieties = [];
+  let rates = {};       // { zoneId: [9 numbers] }
+  let homePref = "三重県";
+  let orderItems = [];  // { varietyId, name, price, qty }
+  let selectedPref = "";
+  let selectedSize = SIZES[0];
+  let history = [];
+
+  const $ = (id)=>document.getElementById(id);
+  const yen = (n)=> "¥" + Math.round(n).toLocaleString("ja-JP");
+
+  // ---------- storage (localStorage: GitHub Pages等の外部公開先でも保存される) ----------
+  function readLS(key, fallback, isPlain){
+    try{
+      const raw = localStorage.getItem("budou_"+key);
+      if(raw===null || raw===undefined) return fallback;
+      return isPlain ? raw : JSON.parse(raw);
+    }catch(e){ return fallback; }
+  }
+  function writeLS(key, value, isPlain){
+    try{ localStorage.setItem("budou_"+key, isPlain ? value : JSON.stringify(value)); }
+    catch(e){ /* 保存できない環境ではその場限りの利用になります */ }
+  }
+
+  async function loadState(){
+    varieties = readLS("varieties", DEFAULT_VARIETIES);
+    rates = readLS("shipping_rates", JSON.parse(JSON.stringify(DEFAULT_RATES)));
+    homePref = readLS("home_pref", "三重県", true);
+    history = readLS("order_history", []);
+  }
+  async function saveVarieties(){ writeLS("varieties", varieties); }
+  async function saveRates(){ writeLS("shipping_rates", rates); }
+  async function saveHomePref(){ writeLS("home_pref", homePref, true); }
+  async function saveHistory(){ writeLS("order_history", history); }
+
+  function zoneNameOf(id){ const z = ZONES.find(z=>z.id===id); return z ? z.name : id; }
+
+  function feeFor(prefName, sizeIdx){
+    if(prefName === homePref){
+      const v = rates.same[sizeIdx];
+      return (v===null || v===undefined) ? 0 : v;
+    }
+    const zoneId = PREF_TO_ZONE[prefName];
+    if(!zoneId) return 0;
+    const arr = rates[zoneId];
+    return arr ? (arr[sizeIdx]||0) : 0;
+  }
+
+  // ---------- rendering: variety picker ----------
+  function renderVarietyGrid(filter){
+    const grid = $("varietyGrid");
+    grid.innerHTML = "";
+    const f = (filter||"").trim();
+    const list = f ? varieties.filter(v=>v.name.includes(f)) : varieties;
+    if(list.length===0){ grid.innerHTML = '<div class="variety-card empty">該当する品種がありません</div>'; return; }
+    list.forEach(v=>{
+      const btn = document.createElement("button");
+      btn.className = "variety-card";
+      btn.innerHTML = `<span class="vname">${escapeHtml(v.name)}</span><span class="vprice">${yen(v.price)}</span>`;
+      btn.addEventListener("click", ()=> addToOrder(v));
+      grid.appendChild(btn);
+    });
+  }
+
+  function addToOrder(v){
+    const existing = orderItems.find(i=>i.varietyId===v.id);
+    if(existing){ existing.qty += 1; } else { orderItems.push({ varietyId:v.id, name:v.name, price:v.price, qty:1 }); }
+    renderSlip();
+  }
+
+  // ---------- rendering: prefecture / size select ----------
+  function renderPrefSelect(){
+    const sel = $("prefSelect");
+    sel.innerHTML = '<option value="">選択してください</option>' +
+      PREF_NAMES.map(p=>`<option value="${p}">${escapeHtml(p)}</option>`).join("");
+    sel.value = selectedPref;
+    updateZoneHint();
+  }
+
+  function renderSizeSelect(){
+    const sel = $("sizeSelect");
+    sel.innerHTML = SIZES.map(s=>`<option value="${s}">${s}</option>`).join("");
+    sel.value = selectedSize;
+  }
+
+  function updateZoneHint(){
+    const hint = $("zoneHint");
+    if(!selectedPref){ hint.textContent = ""; return; }
+    if(selectedPref === homePref){ hint.textContent = "→ 同一県内料金が適用されます"; }
+    else{ hint.textContent = "→ " + zoneNameOf(PREF_TO_ZONE[selectedPref]) + "ゾーンの料金が適用されます"; }
+  }
+
+  function renderHomePrefSelect(){
+    const sel = $("homePrefSelect");
+    sel.innerHTML = PREF_NAMES.map(p=>`<option value="${p}">${escapeHtml(p)}</option>`).join("");
+    sel.value = homePref;
+  }
+
+  // ---------- rendering: slip ----------
+  function renderSlip(){
+    const wrap = $("slipItems");
+    if(orderItems.length===0){
+      wrap.innerHTML = '<div class="slip-empty">左のリストから品種を選んでください</div>';
+    }else{
+      wrap.innerHTML = "";
+      orderItems.forEach(item=>{
+        const row = document.createElement("div");
+        row.className = "slip-item";
+        row.innerHTML = `
+          <div>
+            <div class="si-name">${escapeHtml(item.name)}</div>
+            <div class="si-sub">${yen(item.price)} × ${item.qty}</div>
+          </div>
+          <div class="qty-stepper">
+            <button data-act="dec">－</button>
+            <span>${item.qty}</span>
+            <button data-act="inc">＋</button>
+          </div>
+          <div class="si-amt">${yen(item.price*item.qty)}</div>
+          <button class="si-del" title="削除">×</button>
+        `;
+        row.querySelector('[data-act="inc"]').addEventListener("click", ()=>{ item.qty++; renderSlip(); });
+        row.querySelector('[data-act="dec"]').addEventListener("click", ()=>{
+          item.qty--; if(item.qty<=0){ orderItems = orderItems.filter(i=>i!==item); }
+          renderSlip();
+        });
+        row.querySelector(".si-del").addEventListener("click", ()=>{
+          orderItems = orderItems.filter(i=>i!==item); renderSlip();
+        });
+        wrap.appendChild(row);
+      });
+    }
+    updateCalc();
+  }
+
+  function updateCalc(){
+    const subtotal = orderItems.reduce((s,i)=> s + i.price*i.qty, 0);
+    const sizeIdx = SIZES.indexOf(selectedSize);
+    const shipping = selectedPref ? feeFor(selectedPref, sizeIdx) : 0;
+    $("calcSubtotal").textContent = yen(subtotal);
+    $("calcPrefName").textContent = selectedPref ? (selectedPref + "・" + selectedSize) : "未選択";
+    $("calcShipping").textContent = yen(shipping);
+    $("calcTotal").textContent = yen(subtotal + shipping);
+    $("confirmBtn").disabled = (orderItems.length===0 || !selectedPref);
+  }
+
+  // ---------- master data: varieties ----------
+  function renderVarietyTable(){
+    const body = $("varietyTableBody");
+    body.innerHTML = "";
+    varieties.forEach(v=>{
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><input type="text" value="${escapeHtml(v.name)}" data-field="name"></td>
+        <td><input type="number" min="0" step="1" value="${v.price}" data-field="price"></td>
+        <td><button class="row-del" title="削除">×</button></td>
+      `;
+      tr.querySelector('[data-field="name"]').addEventListener("input", (e)=>{ v.name = e.target.value; saveVarieties(); renderVarietyGrid($("searchInput").value); renderSlip(); });
+      tr.querySelector('[data-field="price"]').addEventListener("input", (e)=>{ v.price = Number(e.target.value)||0; saveVarieties(); renderVarietyGrid($("searchInput").value); syncOrderPrices(); });
+      tr.querySelector(".row-del").addEventListener("click", ()=>{
+        varieties = varieties.filter(x=>x!==v);
+        orderItems = orderItems.filter(i=>i.varietyId!==v.id);
+        saveVarieties(); renderVarietyTable(); renderVarietyGrid($("searchInput").value); renderSlip();
+      });
+      body.appendChild(tr);
+    });
+  }
+
+  function syncOrderPrices(){
+    orderItems.forEach(item=>{
+      const v = varieties.find(x=>x.id===item.varietyId);
+      if(v) item.price = v.price;
+    });
+    renderSlip();
+  }
+
+  // ---------- master data: shipping rate matrix ----------
+  function renderRateTable(){
+    const table = $("rateTable");
+    const cols = [{id:"same", name:"同一県内"}].concat(ZONES.map(z=>({id:z.id, name:z.name})));
+    let thead = "<thead><tr><th>サイズ ＼ ゾーン</th>" + cols.map(c=>`<th>${escapeHtml(c.name)}</th>`).join("") + "</tr></thead>";
+    let tbody = "<tbody>";
+    SIZES.forEach((sizeLabel, sizeIdx)=>{
+      tbody += `<tr><th>${sizeLabel}</th>`;
+      cols.forEach(c=>{
+        const val = rates[c.id] ? rates[c.id][sizeIdx] : null;
+        const isSame = c.id === "same";
+        const disabledNote = (isSame && sizeIdx===0);
+        tbody += `<td class="${isSame?'same-col':''}"><input type="text" inputmode="numeric" pattern="[0-9]*"
+          value="${val===null||val===undefined?'':val}"
+          data-zone="${c.id}" data-idx="${sizeIdx}"
+          ${disabledNote?'placeholder="—"':''}></td>`;
+      });
+      tbody += "</tr>";
+    });
+    tbody += "</tbody>";
+    table.innerHTML = thead + tbody;
+
+    table.querySelectorAll('input[type=text]').forEach(inp=>{
+      inp.addEventListener("input", (e)=>{
+        // 数字以外の文字は除去する
+        const cleaned = e.target.value.replace(/[^0-9]/g, "");
+        if(cleaned !== e.target.value) e.target.value = cleaned;
+        const zoneId = e.target.getAttribute("data-zone");
+        const idx = Number(e.target.getAttribute("data-idx"));
+        if(!rates[zoneId]) rates[zoneId] = new Array(SIZES.length).fill(0);
+        rates[zoneId][idx] = cleaned === "" ? null : (Number(cleaned)||0);
+        saveRates();
+        updateCalc();
+      });
+    });
+  }
+
+  function todayDateStr(){
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth()+1).padStart(2,"0");
+    const d = String(now.getDate()).padStart(2,"0");
+    return `${y}${m}${d}`;
+  }
+
+  function nextOrderNo(){
+    const ds = todayDateStr();
+    const countToday = history.filter(h => h.orderNo && h.orderNo.startsWith(ds+"-")).length;
+    const seq = String(countToday+1).padStart(3,"0");
+    return `${ds}-${seq}`;
+  }
+
+  // ---------- history ----------
+  function renderHistory(){
+    const list = $("historyList");
+    if(history.length===0){ list.innerHTML = '<div class="empty-note">まだ会計履歴はありません</div>'; return; }
+    list.innerHTML = "";
+    history.slice().reverse().forEach(h=>{
+      const row = document.createElement("div");
+      row.className = "history-item";
+      row.innerHTML = `
+        <div>
+          <div><span class="hi-no">No.${escapeHtml(h.orderNo||'-')}</span> ${escapeHtml(h.summary)}</div>
+          <div class="hi-meta">${escapeHtml(h.pref)}・${escapeHtml(h.size)}サイズ・${escapeHtml(h.time)}</div>
+        </div>
+        <div class="hi-amt">${yen(h.total)}</div>
+      `;
+      list.appendChild(row);
+    });
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+  }
+
+  function showToast(msg){
+    const t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(()=> t.classList.remove("show"), 2200);
+  }
+
+  // ---------- events ----------
+  $("searchInput").addEventListener("input", (e)=> renderVarietyGrid(e.target.value));
+  $("prefSelect").addEventListener("change", (e)=>{ selectedPref = e.target.value; updateZoneHint(); updateCalc(); });
+  $("sizeSelect").addEventListener("change", (e)=>{ selectedSize = e.target.value; updateCalc(); });
+  $("homePrefSelect").addEventListener("change", async (e)=>{ homePref = e.target.value; await saveHomePref(); updateZoneHint(); updateCalc(); });
+
+  $("resetBtn").addEventListener("click", ()=>{
+    orderItems = []; selectedPref = ""; $("prefSelect").value = ""; updateZoneHint();
+    renderSlip();
+  });
+
+  $("confirmBtn").addEventListener("click", async ()=>{
+    if(!selectedPref || orderItems.length===0) return;
+    const subtotal = orderItems.reduce((s,i)=> s + i.price*i.qty, 0);
+    const sizeIdx = SIZES.indexOf(selectedSize);
+    const shipping = feeFor(selectedPref, sizeIdx);
+    const total = subtotal + shipping;
+    const summary = orderItems.map(i=>`${i.name}×${i.qty}`).join("、");
+    const now = new Date();
+    const time = `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+    const orderNo = nextOrderNo();
+    history.push({ orderNo, summary, pref: selectedPref, size: selectedSize, total, time });
+    if(history.length>200) history = history.slice(-200);
+    await saveHistory();
+    renderHistory();
+    showToast(`会計確定 No.${orderNo}：${yen(total)}`);
+    orderItems = []; selectedPref = ""; $("prefSelect").value = ""; updateZoneHint();
+    renderSlip();
+  });
+
+  $("addVarietyBtn").addEventListener("click", ()=>{
+    varieties.push({ id: "v" + Date.now(), name: "新しい品種", price: 0 });
+    saveVarieties(); renderVarietyTable(); renderVarietyGrid($("searchInput").value);
+  });
+
+  $("clearHistoryBtn").addEventListener("click", async ()=>{
+    history = []; await saveHistory(); renderHistory();
+  });
+
+  // ---------- init ----------
+  (async function init(){
+    await loadState();
+    renderVarietyGrid("");
+    renderPrefSelect();
+    renderSizeSelect();
+    renderHomePrefSelect();
+    renderSlip();
+    renderVarietyTable();
+    renderRateTable();
+    renderHistory();
+  })();
+
+})();
+</script>
+</body>
+</html>
